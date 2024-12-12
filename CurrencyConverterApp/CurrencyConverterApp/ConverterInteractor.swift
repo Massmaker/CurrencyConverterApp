@@ -16,8 +16,13 @@ protocol CountdownActivePublisherContainer {
     var isCountdownActive:AnyPublisher<Bool, Never> { get }
 }
 
+protocol PrimitiveErrorType {
+    var title:String {get}
+    var details:String? {get}
+}
+
 protocol CurrencyConversionInteraction: PendingRequestPublisherContainer {
-    func convertValue(_ value:Double, fromCurrency:Currency, toCurrency:Currency) throws -> AnyPublisher<Result<Double, Error>, Never>
+    func convertValue(_ value:Double, fromCurrency:Currency, toCurrency:Currency) throws -> AnyPublisher<Result<Double, any Error>, Never>
 }
 
 class ConverterInteractor {
@@ -28,8 +33,14 @@ class ConverterInteractor {
         let toCurrency: Currency
     }
     
+    /// Conforms to PrimitiveErrorType
+    struct ResponseError:Error, PrimitiveErrorType {
+        let title:String
+        private(set) var details:String?
+    }
+    
     private var requestCancellable:AnyCancellable?
-    private var resultPassThrough:PassthroughSubject<Result<Double, Error>, Never>?
+    private var resultPassThrough:PassthroughSubject<Result<Double, any Error>, Never>?
     private lazy var _isPending:CurrentValueSubject<Bool, Never> = .init(false)
     
     let converter: any CurrencyConversion
@@ -38,14 +49,15 @@ class ConverterInteractor {
         self.converter = converter
     }
     
-    func convertValue(_ value:Double, from inputCurrency:Currency, to outputCurrency:Currency) -> AnyPublisher<Result<Double, Error>, Never> {
-          
-        let info = RequestInfo(fromValue: value , fromCurrency: inputCurrency, toCurrency: outputCurrency)
+    func convertValue(_ value:Double, from inputCurrency:Currency, to outputCurrency:Currency) -> AnyPublisher<Result<Double, any Error>, Never> {
         
-        let publisher =
-        self.converter.getConversion(for: info)
-        let resultPassthroughSubject:PassthroughSubject<Result<Double, Error>, Never> = .init()
         self._isPending.send(true)
+        
+        let info = RequestInfo(fromValue: value , fromCurrency: inputCurrency, toCurrency: outputCurrency)
+        let resultPassthroughSubject:PassthroughSubject<Result<Double, any Error>, Never> = .init()
+        
+        let publisher = self.converter.getConversion(for: info)
+        
         self.requestCancellable =
         publisher.sink { [weak self] completion in
             guard let self else { return }
@@ -84,22 +96,62 @@ class ConverterInteractor {
         self.resultPassThrough?.send(Result.success(convertedValue))
     }
     
-    private func handleConversionFailure(_ error:any Error) {
+    
+    /// Sends a `ResponseError` if received some `NetworkingError` or an unknown error type
+    private func handleConversionFailure(_ error: any Error) {
         defer {
             self.requestCancellable?.cancel()
             self.requestCancellable = nil
             self.resultPassThrough = nil
         }
-        /// here can be some advanced error handling
-        self.resultPassThrough?.send(Result.failure(PrimitiveUITextError.failedToConvert))
+        
+        guard let sender = self.resultPassThrough else { return }
+        
+        guard let aCurrencyResponseFailure = error as? CurrencyResponseFailure else {
+            sender.send(Result.failure(ResponseError(title: "Unknown error", details: "Unexpected error occured: \(error.localizedDescription)")))
+            return
+        }
+        
+        var title = "Failed to Convert Currency"
+        var subtitle = ""
+        
+        
+        switch aCurrencyResponseFailure {
+        case .badResponseData:
+            subtitle = "Unexpected response"
+        case .badResponseFormat:
+            subtitle = "Unexpected response format"
+        case .badResponseCode(let stCode, let additionalError):
+            subtitle = "response status code: \(stCode)"
+            if let additional = additionalError {
+                subtitle += "\nMessage: ' \(additional.error): \"\(additional.errorDescription ?? "")\" ' "
+            }
+        case .badURLResponse:
+            subtitle = "Unexpected URL response"
+        case .networkingError(let networkingError):
+            
+            switch networkingError {
+            case .requestTimeout:
+                subtitle = "Request timed out. Please try again later."
+            case .noInternetConnection:
+                subtitle = "No internet connection. Please check it and try again."
+            case .otherError:
+                title = "Networking Issue"
+                subtitle = "Some networking error occured. Please try a different setup."
+            case .unknownError:
+                title = "Error"
+                subtitle = "Unknown error occured. Please try a different setup."
+            }
+        }
+        
+        let managedError:ResponseError = ResponseError(title: title, details: subtitle)
+        
+        sender.send(Result.failure(managedError))
+        
     }
     
     private func handleRequestFaulire(_ error: any Error) {
-        defer {
-            self.requestCancellable = nil
-            self.resultPassThrough = nil
-        }
-        self.resultPassThrough?.send(Result.failure(PrimitiveUITextError.networkingIssue))
+        self.handleConversionFailure(error)
     }
 }
 
@@ -112,7 +164,7 @@ extension ConverterInteractor: PendingRequestPublisherContainer {
 
 //MARK: - CurrencyConversionInteraction
 extension ConverterInteractor: CurrencyConversionInteraction {
-    func convertValue(_ value:Double, fromCurrency:Currency, toCurrency:Currency) throws -> AnyPublisher<Result<Double, Error>, Never> {
+    func convertValue(_ value:Double, fromCurrency:Currency, toCurrency:Currency) throws -> AnyPublisher<Result<Double, any Error>, Never> {
         
         guard fromCurrency != toCurrency else {
             throw CurrencyInputError.equalInputAndOutput
