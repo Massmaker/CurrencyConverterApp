@@ -21,9 +21,22 @@
 		2C0753CC2D0AC07C00724198 /* CurrencyConverterAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CurrencyConverterAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		2C02EFBC2D0B4F5F00F80341 /* Exceptions for "CurrencyConverterApp" folder in "CurrencyConverterApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 2C0753BB2D0AC07A00724198 /* CurrencyConverterApp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2C0753BE2D0AC07A00724198 /* CurrencyConverterApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				2C02EFBC2D0B4F5F00F80341 /* Exceptions for "CurrencyConverterApp" folder in "CurrencyConverterApp" target */,
+			);
 			path = CurrencyConverterApp;
 			sourceTree = "<group>";
 		};
@@ -329,6 +342,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"CurrencyConverterApp/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CurrencyConverterApp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -358,6 +372,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"CurrencyConverterApp/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CurrencyConverterApp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
