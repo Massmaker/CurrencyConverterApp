@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var viewModel:ContentViewModel
+    
     var body: some View {
         VStack {
             Image(systemName: "globe")
@@ -20,5 +22,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(viewModel: ContentViewModel(with: CurrencyConversionInteractorDummy()))
 }
