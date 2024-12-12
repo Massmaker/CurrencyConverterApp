@@ -44,6 +44,12 @@ class NetworkAPIService {
         self.urlRequestsBuilder = requestsBuider
         self.session = URLSession(configuration: .default)
     }
+    
+    deinit {
+        resultSubjects.removeAll()
+        urlRequestSubscriptions.values.forEach({$0.cancel()})
+        session.invalidateAndCancel()
+    }
 }
 
 extension NetworkAPIService: CurrencyConversion {

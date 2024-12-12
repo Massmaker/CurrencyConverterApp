@@ -18,3 +18,12 @@ enum CurrencyResponseFailure: Error {
     case badResponseCode(Int)
     case badURLResponse
 }
+
+enum CurrencyInputError : Error {
+    case equalInputAndOutput
+}
+
+enum PrimitiveUITextError:Error {
+    case failedToConvert
+    case networkingIssue
+}
