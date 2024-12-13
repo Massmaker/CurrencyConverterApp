@@ -9,6 +9,8 @@ import Foundation
 
 struct CurrencyConversionResponse:Decodable {
     var currency: String
-    
-    var value: Double
+    var amount: String
+    var value: Double {
+        Double(amount) ?? 0.0
+    }
 }
