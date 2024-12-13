@@ -117,8 +117,15 @@ class ContentViewModel:ObservableObject {
         subscribeForRequestInfoUpdates()
     }
     
+    deinit {
+        stopRefreshTimer()
+    }
+    
     func uiActionToggleConversionDirection() {
-        self.backwardConversion.toggle()
+        withAnimation {
+            self.backwardConversion.toggle()
+        }
+        
         self.requestCurrency()
     }
     
