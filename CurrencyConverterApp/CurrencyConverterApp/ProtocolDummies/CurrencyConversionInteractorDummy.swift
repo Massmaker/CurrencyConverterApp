@@ -10,7 +10,8 @@ import Combine
 
 class CurrencyConversionInteractorDummy: CurrencyConversionInteraction {
     func convertValue(_ value: Double, fromCurrency: Currency, toCurrency: Currency) throws -> AnyPublisher<Result<Double, any Error>, Never> {
-        return Just(.success(24.6)).eraseToAnyPublisher()
+        let randomResult = [24.6, Double(35), Double(100500)].randomElement() ?? Double(10)
+        return Just(.success(randomResult)).eraseToAnyPublisher()
     }
     
     var isPendingRequest: AnyPublisher<Bool, Never> {
