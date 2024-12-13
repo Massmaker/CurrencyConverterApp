@@ -27,8 +27,21 @@ class UITextFieldDelegateCallsHandler:NSObject, UITextFieldDelegate {
         return true
     }
     
+    func textFieldShouldClear(_ textField: UITextField) -> Bool {
+        return true
+    }
+    
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        self.textChangeReceiver.receiveCurrencyValueText(string)
+        
+        
+        if string.isEmpty, let text = textField.text as? NSString {
+            let newString = text.replacingCharacters(in: range, with: "")
+            self.textChangeReceiver.receiveCurrencyValueText(newString)
+        }
+        else if let text = textField.text as? NSString {
+            let newString = text.replacingCharacters(in: range, with: string)
+            self.textChangeReceiver.receiveCurrencyValueText(newString)
+        }
         
         return true
     }

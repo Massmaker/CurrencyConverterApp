@@ -11,13 +11,16 @@ struct UIKitPresentingView: UIViewControllerRepresentable {
    
     typealias UIViewControllerType = CurrencyViewController
     
-    let viewModel:ContentViewModel
-    init(viewModel: ContentViewModel) {
-        self.viewModel = viewModel
+    let anyViewModel: any ContentViewModelType
+    let switcher: any UXUIFrameworkSwitching
+    
+    init(with viewModel: any ContentViewModelType, switcher: any UXUIFrameworkSwitching) {
+        self.anyViewModel = viewModel
+        self.switcher = switcher
     }
     
     func makeUIViewController(context: Context) -> CurrencyViewController {
-        CurrencyViewController(viewModel: self.viewModel)
+        CurrencyViewController(viewModel: self.anyViewModel, uxUiSwitcher: self.switcher)
     }
     
     func updateUIViewController(_ uiViewController: CurrencyViewController, context: Context) {
@@ -32,5 +35,6 @@ struct UIKitPresentingView: UIViewControllerRepresentable {
 }
 
 #Preview {
-    UIKitPresentingView(viewModel: ContentViewModel.init(with: CurrencyConversionInteractorDummy(), availableCurrencies: Currency.allCases))
+    let dummyVM = ContentViewModel.init(with: CurrencyConversionInteractorDummy(), availableCurrencies: Currency.allCases)
+    UIKitPresentingView(with: dummyVM, switcher: dummyVM)
 }

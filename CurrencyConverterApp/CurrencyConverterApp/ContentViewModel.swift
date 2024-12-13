@@ -150,6 +150,11 @@ class ContentViewModel:ObservableObject {
     
     //MARK: - Timer
     private func startRefreshTimer() {
+        
+        guard self.refreshTimer == nil else {
+            return
+        }
+        
         let aTimer = Timer(timeInterval: TimeInterval(refreshIntervalSeconds), repeats: true, block: {[weak self] timer in
             guard let self else { return }
             
@@ -305,7 +310,9 @@ class ContentViewModel:ObservableObject {
         defer {
             self.startRefreshTimer()
         }
-        self.outputValueText = String(result)
+        
+        
+        self.outputValueText = result.formatted(.currency(code: self.backwardConversion ? self.inputCurrencyTitle : self.outputCurrencyTitle ))
         self.removePendingSubscription()
         
     }
@@ -349,4 +356,64 @@ class ContentViewModel:ObservableObject {
         self.pendingSubscription?.cancel()
         self.pendingSubscription = nil
     }
+}
+
+
+//MARK: - ContentViewModelType
+extension ContentViewModel: ContentViewModelType {
+    
+    var toggleConversionIconNamePublisher: AnyPublisher<String, Never> {
+        self.$toggleConversionIconName.eraseToAnyPublisher()
+    }
+    
+    var backwardConversionPublisher: AnyPublisher<Bool, Never> {
+        self.$backwardConversion.eraseToAnyPublisher()
+    }
+    
+    var outputValueTextPublisher: AnyPublisher<String, Never> {
+        self.$outputValueText.eraseToAnyPublisher()
+    }
+    
+    var inputText:String? {
+        self.inputValueText
+    }
+    
+    var isAlertPublisher:AnyPublisher<Bool, Never> {
+        self.$isDisplayingAlert.eraseToAnyPublisher()
+    }
+    
+    var alertInfoData: AlertInfo? {
+        self.alertInfo
+    }
+    
+    func setInputCurrencyName(_ string: String) {
+        self.inputCurrencyTitle = string
+    }
+    
+    func setOutputCurrencyName(_ string: String) {
+        self.outputCurrencyTitle = string
+    }
+    
+    func setInputValueText(_ string: String) {
+        self.inputValueText = string
+    }
+    
+}
+
+//MARK: - UXUIFrameworkSwitching
+extension ContentViewModel:UXUIFrameworkSwitching {
+    func switchToUIKit() {
+        withAnimation {
+            self.isUIKit = true
+            self.toggleUIActionName = kToSwiftUIActionName
+        }
+    }
+    
+    func switchToSwiftUI() {
+        withAnimation {
+            self.isUIKit = false
+            self.toggleUIActionName = kToUIKitActionName
+        }
+    }
+    
 }

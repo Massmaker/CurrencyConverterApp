@@ -19,190 +19,186 @@ struct ContentView: View {
     
     var body: some View {
         if viewModel.isUIKit {
-            uiKitUI
+            uiKit_ui
         }
         else {
-            VStack{
-                if verticalSizeClass == .compact && horizontalSizeClass == .compact {
-                    smallIphoneHorizontalUI
-                }
-                else if horizontalSizeClass == .compact {
-                    iphoneVerticalUI
-                    Spacer()
-                }
-                else {
-                    defaultUI
-                }
-                
-            }
-            .background(LinearGradient(colors: [Color.clear, .accentColor], startPoint: .top, endPoint: .bottom))
-            .overlay(alignment: .bottomLeading, content: {
-                HStack{
-                    Text("SwiftUI")
-                        .foregroundStyle(.tertiary)
-                    Button(action: viewModel.uiActionToggleUI, label: {Text(viewModel.toggleUIActionName)})
-                        .foregroundStyle(.tertiary)
-                }
-                .padding()
-            })
-            .alert(viewModel.alertInfo?.title ?? "Error",
-                   isPresented: $viewModel.isDisplayingAlert,
-                   presenting: viewModel.alertInfo,
-                   actions: { alertInfo in
-                ForEach(alertInfo.actions) { action in
-                    action.body
-                }
-            },
-                   message: {alertInfo in
-                Text(alertInfo.subtitle ?? "")
-            })
+            swiftUI_ui
         }
     }
     
-    @ViewBuilder private var uiKitUI: some View {
-        UIKitPresentingView(viewModel: self.viewModel)
+    @ViewBuilder private var uiKit_ui: some View {
+        UIKitPresentingView(with: WeakObject(self.viewModel),
+                            switcher: WeakObject(self.viewModel))
+    }
+    
+    @ViewBuilder private var swiftUI_ui: some View {
+        VStack{
+            if verticalSizeClass == .compact && horizontalSizeClass == .compact {
+                smallIphoneHorizontalUI
+            }
+            else if horizontalSizeClass == .compact {
+                iphoneVerticalUI
+                
+            }
+            else {
+                defaultUI
+            }
+            
+        }
+        .background(LinearGradient(colors: [Color.clear, .accentColor], startPoint: .top, endPoint: .bottom))
+        .overlay(alignment: .bottomLeading, content: {
+            HStack{
+                Button(action: viewModel.uiActionToggleUI, label: {Text(viewModel.toggleUIActionName)})
+                    .foregroundStyle(.tertiary)
+            }
+            .padding()
+        })
+        .alert(viewModel.alertInfo?.title ?? "Error",
+               isPresented: $viewModel.isDisplayingAlert,
+               presenting: viewModel.alertInfo,
+               actions: { alertInfo in
+            ForEach(alertInfo.actions) { action in
+                action.body
+            }
+        },
+               message: {alertInfo in
+            Text(alertInfo.subtitle ?? "")
+        })
     }
     
     @ViewBuilder private var smallIphoneHorizontalUI: some View {
-
-        HStack {
-            if !viewModel.backwardConversion {
-                textField
-            }
-            else {
-                if !viewModel.outputValueText.isEmpty {
-                    
-                        Text(viewModel.outputValueText)
-                            .font(.title)
-                            .padding()
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(.accent, lineWidth: 2)
-                                )
-                    
-                }
-            }
-            
-            Picker("From", selection: $viewModel.inputCurrencyTitle) {
-                ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
-                    Text(currencyTitle)
-                })
-            }
-            
-            toggleDirectionButton
-            
-            
-            Picker("To", selection: $viewModel.outputCurrencyTitle) {
-                ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
-                    Text(currencyTitle)
-                })
-            }
-            .font(.largeTitle)
-            
-            if viewModel.backwardConversion {
-                textField
-            }
-            else {
-                if !viewModel.outputValueText.isEmpty {
-                    
-                        Text(viewModel.outputValueText)
-                            .font(.title)
-                            .padding()
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(.accent, lineWidth: 2)
-                                )
-                    
-                }
-            }
-        }
-    }
-    
-    @ViewBuilder private var iphoneVerticalUI: some View {
-        HStack {
-            Text("Wheel Style pickers")
-                .foregroundStyle(.secondary)
-            
-            Toggle("", isOn: $isWheelPickerStyle)
-                .labelsHidden()
-                .padding()
-            Spacer()
-        }
-        .padding(.horizontal)
-        
-        VStack (spacing:24) {
+        VStack {
             HStack {
-                if isWheelPickerStyle {
-                    Picker("From", selection: $viewModel.inputCurrencyTitle) {
-                        ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
-                            if viewModel.backwardConversion {
-                                Text(currencyTitle)
-                                    .font(.largeTitle)
-                            }
-                            else {
-                                Text(currencyTitle)
-                            }
-                        })
-                    }
-                    .pickerStyle(.wheel)
+                if !viewModel.backwardConversion {
+                    Spacer()
+                    textField
                 }
                 else {
-                    Picker("From", selection: $viewModel.inputCurrencyTitle) {
-                        ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
-                            Text(currencyTitle)
-                        })
-                    }
+                    valueLabel
                 }
                 
+                Picker("From", selection: $viewModel.inputCurrencyTitle) {
+                    ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
+                        Text(currencyTitle)
+                    })
+                }
                 
                 toggleDirectionButton
                 
                 
-                if isWheelPickerStyle {
-                    Picker("To", selection: $viewModel.outputCurrencyTitle) {
-                        ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
-                            if viewModel.backwardConversion {
-                                Text(currencyTitle)
-                            }
-                            else {
-                                Text(currencyTitle)
-                                    .font(.largeTitle)
-                            }
-                        })
-                    }
-                    .pickerStyle( .wheel)
-                    
+                Picker("To", selection: $viewModel.outputCurrencyTitle) {
+                    ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
+                        Text(currencyTitle)
+                    })
+                }
+                .font(.largeTitle)
+                
+                if viewModel.backwardConversion {
+                    textField
+                    Spacer()
                 }
                 else {
-                    Picker("To", selection: $viewModel.outputCurrencyTitle) {
-                        ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
-                            Text(currencyTitle)
-                        })
+                    valueLabel
+                }
+            }
+            .frame(maxWidth: .infinity)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        
+        
+    }
+    
+    @ViewBuilder private var iphoneVerticalUI: some View {
+        VStack {
+            
+            
+            VStack (spacing:24) {
+                HStack {
+                    if isWheelPickerStyle {
+                        Picker("From", selection: $viewModel.inputCurrencyTitle) {
+                            ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
+                                if viewModel.backwardConversion {
+                                    Text(currencyTitle)
+                                        .font(.largeTitle)
+                                }
+                                else {
+                                    Text(currencyTitle)
+                                }
+                            })
+                        }
+                        .pickerStyle(.wheel)
                     }
-                    .font(.largeTitle)
+                    else {
+                        Picker("From", selection: $viewModel.inputCurrencyTitle) {
+                            ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
+                                Text(currencyTitle)
+                            })
+                        }
+                    }
+                    
+                    
+                    toggleDirectionButton
+                    
+                    
+                    if isWheelPickerStyle {
+                        Picker("To", selection: $viewModel.outputCurrencyTitle) {
+                            ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
+                                if viewModel.backwardConversion {
+                                    Text(currencyTitle)
+                                }
+                                else {
+                                    Text(currencyTitle)
+                                        .font(.largeTitle)
+                                }
+                            })
+                        }
+                        .pickerStyle( .wheel)
+                        
+                    }
+                    else {
+                        Picker("To", selection: $viewModel.outputCurrencyTitle) {
+                            ForEach(viewModel.currencyTitles, id: \.self, content: {currencyTitle in
+                                Text(currencyTitle)
+                            })
+                        }
+                        .font(.largeTitle)
+                        
+                    }
                     
                 }
                 
+                HStack {
+                    Spacer()
+                    textField
+                    Spacer()
+                    
+                    
+                }
+                
+                
+                valueLabel
+                
             }
+            
+            Spacer()
             
             HStack {
-                Spacer()
-                textField
-                Spacer()
+                Text("Wheel Style pickers")
+                    .foregroundStyle(.secondary)
                 
-                
+                Toggle("", isOn: $isWheelPickerStyle)
+                    .labelsHidden()
+                    .padding()
+                Spacer()
             }
+            .padding(.horizontal)
+            .padding(.bottom, 50)
             
-            if !viewModel.outputValueText.isEmpty {
-                HStack {
-                    Text("Result:")
-                        .font(.subheadline)
-                    
-                    Text(viewModel.outputValueText)
-                        .font(.title)
-                }
-            }
+//            Spacer()
         }
+        
     }
     
     @ViewBuilder private var defaultUI: some View {
@@ -334,7 +330,7 @@ struct ContentView: View {
     @ViewBuilder private var textField: some View {
         TextField("Input Value", text: $viewModel.inputValueText, prompt: Text("Enter a Value"))
             .textFieldStyle(.roundedBorder)
-            .keyboardType(.decimalPad)
+            .keyboardType(.numbersAndPunctuation)
             .font(.title)
             .focused($isTextVieldFocused)
             .frame(maxWidth: 260)
@@ -375,6 +371,17 @@ struct ContentView: View {
                     }
                 }
             })
+    }
+    
+    @ViewBuilder private var valueLabel: some View {
+        Text(viewModel.outputValueText.isEmpty ? "  " : viewModel.outputValueText)
+                .font(.title)
+                .padding(8)
+                .frame(minWidth: 50)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(.accent, lineWidth: 2)
+                    )
     }
 }
 
