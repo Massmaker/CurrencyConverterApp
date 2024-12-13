@@ -18,32 +18,49 @@ struct ContentView: View {
      
     
     var body: some View {
-     
-        VStack{
-            if verticalSizeClass == .compact && horizontalSizeClass == .compact {
-                smallIphoneHorizontalUI
-            }
-            else if horizontalSizeClass == .compact {
-                iphoneVerticalUI
-                Spacer()
-            }
-            else {
-                defaultUI
-            }
-            
+        if viewModel.isUIKit {
+            uiKitUI
         }
-        .background(LinearGradient(colors: [Color.clear, .accentColor], startPoint: .top, endPoint: .bottom))
-        .alert(viewModel.alertInfo?.title ?? "Error",
-               isPresented: $viewModel.isDisplayingAlert,
-               presenting: viewModel.alertInfo,
-               actions: { alertInfo in
-            ForEach(alertInfo.actions) { action in
-                action.body
+        else {
+            VStack{
+                if verticalSizeClass == .compact && horizontalSizeClass == .compact {
+                    smallIphoneHorizontalUI
+                }
+                else if horizontalSizeClass == .compact {
+                    iphoneVerticalUI
+                    Spacer()
+                }
+                else {
+                    defaultUI
+                }
+                
             }
-                },
-               message: {alertInfo in
-            Text(alertInfo.subtitle ?? "")
-        })
+            .background(LinearGradient(colors: [Color.clear, .accentColor], startPoint: .top, endPoint: .bottom))
+            .overlay(alignment: .bottomLeading, content: {
+                HStack{
+                    Text("SwiftUI")
+                        .foregroundStyle(.tertiary)
+                    Button(action: viewModel.uiActionToggleUI, label: {Text(viewModel.toggleUIActionName)})
+                        .foregroundStyle(.tertiary)
+                }
+                .padding()
+            })
+            .alert(viewModel.alertInfo?.title ?? "Error",
+                   isPresented: $viewModel.isDisplayingAlert,
+                   presenting: viewModel.alertInfo,
+                   actions: { alertInfo in
+                ForEach(alertInfo.actions) { action in
+                    action.body
+                }
+            },
+                   message: {alertInfo in
+                Text(alertInfo.subtitle ?? "")
+            })
+        }
+    }
+    
+    @ViewBuilder private var uiKitUI: some View {
+        UIKitPresentingView(viewModel: self.viewModel)
     }
     
     @ViewBuilder private var smallIphoneHorizontalUI: some View {
@@ -72,28 +89,7 @@ struct ContentView: View {
                 })
             }
             
-            Button(action: viewModel.uiActionToggleConversionDirection, label: {
-                if #available(iOS 18.0, *) {
-                    Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                        .fontWeight(.bold)
-                        .symbolEffect(viewModel.backwardConversion ? .rotate.counterClockwise : .rotate.clockwise)
-                        .padding()
-                } else if #available(iOS 17.0, *) {
-                    
-                    Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                        .fontWeight(.bold)
-                        .symbolEffect(.pulse)
-                        .padding()
-                }
-                else {
-                    Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                        .fontWeight(.bold)
-                        .padding()
-                }
-            })
-            //.buttonStyle(.bordered)
-            .fontWeight(.bold)
-            
+            toggleDirectionButton
             
             
             Picker("To", selection: $viewModel.outputCurrencyTitle) {
@@ -159,27 +155,7 @@ struct ContentView: View {
                 }
                 
                 
-                Button(action: viewModel.uiActionToggleConversionDirection, label: {
-                    if #available(iOS 18.0, *) {
-                        Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                            .fontWeight(.bold)
-                            .symbolEffect(viewModel.backwardConversion ? .rotate.counterClockwise : .rotate.clockwise)
-                            .padding()
-                    } else if #available(iOS 17.0, *) {
-                        
-                        Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                            .fontWeight(.bold)
-                            .symbolEffect(.pulse)
-                            .padding()
-                    }
-                    else {
-                        Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                            .fontWeight(.bold)
-                            .padding()
-                    }
-                })
-                //.buttonStyle(.bordered)
-                .fontWeight(.bold)
+                toggleDirectionButton
                 
                 
                 if isWheelPickerStyle {
@@ -267,28 +243,8 @@ struct ContentView: View {
                         }
                     }
                    
-                    
-                    Button(action: viewModel.uiActionToggleConversionDirection, label: {
-                        if #available(iOS 18.0, *) {
-                            Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                                .fontWeight(.bold)
-                                .symbolEffect(viewModel.backwardConversion ? .rotate.counterClockwise : .rotate.clockwise)
-                                .padding()
-                        } else if #available(iOS 17.0, *) {
-                            
-                            Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                                .fontWeight(.bold)
-                                .symbolEffect(.pulse)
-                                .padding()
-                        }
-                        else {
-                            Text(Image(systemName: viewModel.backwardConversion ? "arrow.left" : "arrow.right"))
-                                .fontWeight(.bold)
-                                .padding()
-                        }
-                    })
-                    //.buttonStyle(.bordered)
-                    .fontWeight(.bold)
+
+                    toggleDirectionButton
                     
                     
                     if isWheelPickerStyle {
@@ -349,6 +305,30 @@ struct ContentView: View {
             Spacer()
         }
         
+    }
+    
+    @ViewBuilder private var toggleDirectionButton: some View {
+        
+        Button(action: viewModel.uiActionToggleConversionDirection, label: {
+            if #available(iOS 18.0, *) {
+                Text(Image(systemName: viewModel.toggleConversionIconName))
+                    .fontWeight(.bold)
+                    .symbolEffect(viewModel.backwardConversion ? .rotate.counterClockwise : .rotate.clockwise)
+                    .padding()
+            } else if #available(iOS 17.0, *) {
+                
+                Text(Image(systemName: viewModel.toggleConversionIconName))
+                    .fontWeight(.bold)
+                    .symbolEffect(.pulse)
+                    .padding()
+            }
+            else {
+                Text(Image(systemName: viewModel.toggleConversionIconName))
+                    .fontWeight(.bold)
+                    .padding()
+            }
+        })
+        .fontWeight(.bold)
     }
     
     @ViewBuilder private var textField: some View {
