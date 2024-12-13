@@ -127,7 +127,7 @@ extension NetworkAPIService: CurrencyConversion {
             
             let response:CurrencyConversionResponse = try decoder.decode(CurrencyConversionResponse.self, from: data)
             
-            guard let aCurrency = Currency(rawValue: response.currency) else {
+            guard let aCurrency = Currency.createFromString(response.currency) else {
                 resultSender.send(Result.failure(CurrencyResponseFailure.badResponseFormat))
                 return
             }
