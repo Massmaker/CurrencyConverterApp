@@ -5,13 +5,15 @@
 //  Created by Ivan Yavorin on 12.12.2024.
 //
 import Foundation
-protocol CurrenctRequestBuilding {
-    func buildCurrencyExchangeRequestWith(input: any CurrencyConversionRequestInfo) throws -> URLRequest
+protocol CurrencyRequestBuilding {
+    func buildCurrencyExchangeRequestWith(input: any CurrencyConversionRequestInfo) -> URLRequest
 }
 
-class RequestBuilder: CurrenctRequestBuilding {
+let kBaseURLString:String = "http://api.evp.lt"
+
+class RequestBuilder: CurrencyRequestBuilding {
     
-    private(set) var baseURLString:String
+    private(set) var baseURL:URL
     
     enum HTTPMethods:String {
         case get, post, put, delete, head
@@ -20,14 +22,15 @@ class RequestBuilder: CurrenctRequestBuilding {
         }
     }
     
-    init(with baseURLString:String) {
-        self.baseURLString = baseURLString
-    }
-    
-    func buildCurrencyExchangeRequestWith(input: any CurrencyConversionRequestInfo) throws -> URLRequest {
-        guard let baseURL = URL(string: self.baseURLString) else {
+    init(with baseURLString:String) throws {
+        
+        guard let baseURL = URL(string: baseURLString) else {
             throw PreparationError.badURL
         }
+        self.baseURL = baseURL
+    }
+    
+    func buildCurrencyExchangeRequestWith(input: any CurrencyConversionRequestInfo) -> URLRequest {
         
         let sourceAmountValue = input.fromValue
         let sourceCurrencyParameter = input.fromCurrency.currencyAPIRequestParameterValue()

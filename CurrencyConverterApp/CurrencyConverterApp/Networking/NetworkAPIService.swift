@@ -33,14 +33,14 @@ protocol CurrencyConversion {
 }
 
 class NetworkAPIService {
-    private let urlRequestsBuilder: any CurrenctRequestBuilding
+    private let urlRequestsBuilder: any CurrencyRequestBuilding
        
     private var session:URLSession
     
     private lazy var urlRequestSubscriptions:[UUID:AnyCancellable] = [:]
     private lazy var resultSubjects:[UUID:PassthroughSubject<Result<any CurrencyConversionResult, any Error>, any Error>] = [:]
     
-    init(with requestsBuider: any CurrenctRequestBuilding) {
+    init(with requestsBuider: any CurrencyRequestBuilding) {
         self.urlRequestsBuilder = requestsBuider
         self.session = URLSession(configuration: .default)
     }
@@ -67,42 +67,38 @@ extension NetworkAPIService: CurrencyConversion {
         }
         
         
-        do {
-            let urlRequest = try self.urlRequestsBuilder.buildCurrencyExchangeRequestWith(input: conversionRequest)
-            
-            let passTrough:PassthroughSubject<Result<any CurrencyConversionResult, any Error>, any Error> = .init()
-            
-            let uid = UUID()
-            let cancellable =
-            self.session.dataTaskPublisher(for: urlRequest)
-                .sink {[weak self, uid] completion in
-                guard let self else {
-                    return
-                }
-                
-                if case .failure(let error) = completion {
-                    self.handleResponseFailure(error, forUID: uid)
-                }
-                
-            } receiveValue: {[weak self, uid] response  in
-                guard let self else {
-                    return
-                }
-                self.handleURLResponse(response, forUID: uid)
+        let urlRequest = self.urlRequestsBuilder.buildCurrencyExchangeRequestWith(input: conversionRequest)
+        
+        let passTrough:PassthroughSubject<Result<any CurrencyConversionResult, any Error>, any Error> = .init()
+        
+        let uid = UUID()
+        let cancellable =
+        self.session.dataTaskPublisher(for: urlRequest)
+            .sink {[weak self, uid] completion in
+            guard let self else {
+                return
             }
             
-            //store to be able to cancel the ongoing request
-            self.urlRequestSubscriptions[uid] = cancellable //thread unsafe. better is to use a separate queue for managing the subscriptions dict or use an "actor"
-            self.resultSubjects[uid] = passTrough
+            if case .failure(let error) = completion {
+                self.handleResponseFailure(error, forUID: uid)
+            }
             
-            return passTrough.eraseToAnyPublisher()
+        } receiveValue: {[weak self, uid] response  in
+            guard let self else {
+                return
+            }
+            self.handleURLResponse(response, forUID: uid)
+        }
+        
+        //store to be able to cancel the ongoing request
+        self.urlRequestSubscriptions[uid] = cancellable //thread unsafe. better would be using a separate queue for managing the subscriptions dict or use an "actor"
+        self.resultSubjects[uid] = passTrough
+        
+        return passTrough.eraseToAnyPublisher()
 
-        }
-        catch {
-            return Fail(error: error).eraseToAnyPublisher()
-        }
     }
     
+    /// finds response callback subject and sends `.success` or `.failure` results containing a Double value or CurrencyResponseFailure in case of some errors
     private func handleURLResponse(_ response:(Data,URLResponse), forUID uid:UUID) {
         defer {
             finishSubscriptionFor(uid: uid)
@@ -113,7 +109,8 @@ extension NetworkAPIService: CurrencyConversion {
         }
         
         
-        if self.handledBadResponse(response, forSender: resultSender) {
+        if let currencyResponseFailure = self.handledBadResponse(response) {
+            resultSender.send(Result.failure(currencyResponseFailure))
             return
         }
       
@@ -130,8 +127,8 @@ extension NetworkAPIService: CurrencyConversion {
             
             let response:CurrencyConversionResponse = try decoder.decode(CurrencyConversionResponse.self, from: data)
             
-            guard let aCurrency = Currency(rawValue: response.currency) else {
-                resultSender.send(Result.failure(CurrencyResponseFailure.badResponseData))
+            guard let aCurrency = Currency.createFromString(response.currency) else {
+                resultSender.send(Result.failure(CurrencyResponseFailure.badResponseFormat))
                 return
             }
             
@@ -140,12 +137,14 @@ extension NetworkAPIService: CurrencyConversion {
             resultSender.send(Result.success(result))
         }
         catch {
-            resultSender.send(Result.failure(error))
+            //Decoding of the response failed
+            resultSender.send(Result.failure(CurrencyResponseFailure.badResponseFormat))
         }
         
         
     }
     
+    /// sends a `CurrencyResponseFailure.networkingError` with  `NetworkingError` inside if the resultSubject is found in `resultSubjects`
     private func handleResponseFailure(_ anyError: any Error, forUID uid:UUID) {
         defer {
             finishSubscriptionFor(uid: uid)
@@ -154,25 +153,50 @@ extension NetworkAPIService: CurrencyConversion {
         guard let resultSender = self.resultSubjects[uid] else {
             return
         }
-        //here should be some URLSession HTTP failure or some timeout, inrerne connection problems...
-        resultSender.send(.failure(anyError))
+        
+        guard let urlError = anyError as? URLError else {
+            resultSender.send(.failure(CurrencyResponseFailure.networkingError(NetworkingError.unknownError)))
+            return
+        }
+        
+        let anError:NetworkingError
+        
+        switch urlError.code {
+        case .timedOut:
+            anError = .requestTimeout
+        case .notConnectedToInternet:
+            anError = .noInternetConnection
+        default:
+            anError = .otherError
+        }
+        //appTransportSecurityRequiresSecureConnection: -1022
+        
+        resultSender.send(.failure(CurrencyResponseFailure.networkingError(anError)))
     }
     
     
-    private func handledBadResponse(_ response:(Data,URLResponse), forSender resultSender:PassthroughSubject<Result<any CurrencyConversionResult, any Error>, any Error>) -> Bool {
+    private func handledBadResponse(_ response:(Data,URLResponse)) -> CurrencyResponseFailure? {
+        
         let urlResponse = response.1
         guard let httpResponse = urlResponse as? HTTPURLResponse else {
-            resultSender.send(Result.failure(CurrencyResponseFailure.badURLResponse))
-            return true
+            return CurrencyResponseFailure.badURLResponse
         }
         
         let statusCode = httpResponse.statusCode
         guard statusCode >= 200, statusCode < 300 else {
-            resultSender.send(Result.failure(CurrencyResponseFailure.badResponseCode(statusCode)))
-            return true
+            
+            let responseData = response.0
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            if let detailedError = try? decoder.decode(AdditionalError.self, from: responseData) {
+                return CurrencyResponseFailure.badResponseCode(statusCode, detailedError)
+            }
+            else {
+                return CurrencyResponseFailure.badResponseCode(statusCode, nil)
+            }
         }
         
-        return false
+        return nil
     }
     
     private func finishSubscriptionFor(uid:UUID) {
