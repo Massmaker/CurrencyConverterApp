@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import SwiftUI
 
 fileprivate struct CurrencyRequestInfo: Equatable {
     private(set) var value:Double
@@ -49,7 +50,7 @@ class ContentViewModel:ObservableObject {
     @Published var inputCurrencyTitle:String = ""
     @Published var outputCurrencyTitle:String = ""
     @Published private(set) var isCountdownActive:Bool = false
-    
+    @Published private(set) var backwardConversion:Bool = false
     @Published var isDisplayingAlert:Bool = false
     
     private(set) var alertInfo:AlertInfo?
@@ -86,7 +87,21 @@ class ContentViewModel:ObservableObject {
         
         conversionInteractor.isPendingRequest
             .receive(on: DispatchQueue.main)
-            .assign(to: \.inProgress, on: self)
+//            .assign(to: \.inProgress, on: self)
+            .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
+            .sink(receiveValue: {[unowned self] isPending in
+                if self.inProgress && !isPending {
+//                    withAnimation(.easeIn(duration: 0.3).delay(1.0)) {
+                        self.inProgress = isPending
+//                    }
+                }
+                else if !self.inProgress && isPending {
+//                    withAnimation{
+                        self.inProgress = isPending
+//                    }
+                    
+                }
+            })
             .store(in: &lifetimeSubscriptions)
         
         
@@ -102,6 +117,10 @@ class ContentViewModel:ObservableObject {
         subscribeForRequestInfoUpdates()
     }
     
+    func uiActionToggleConversionDirection() {
+        self.backwardConversion.toggle()
+        self.requestCurrency()
+    }
     
     //MARK: - Timer
     private func startRefreshTimer() {
@@ -134,11 +153,18 @@ class ContentViewModel:ObservableObject {
     //MARK: -
     private func subscribeForValueTextChange() {
         $inputValueText
-            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .debounce(for: .milliseconds(1300), scheduler: DispatchQueue.main)
             .sink {[unowned self] valueString in
+                
                 if let double = Double(valueString) {
                     var currentRequestInfo = self.requestInfoCVsubject.value
                     currentRequestInfo.setValue(double)
+                    self.requestInfoCVsubject.send(currentRequestInfo)
+                }
+                else {
+                    self.stopRefreshTimer()
+                    var currentRequestInfo = self.requestInfoCVsubject.value
+                    currentRequestInfo.setValue(0)
                     self.requestInfoCVsubject.send(currentRequestInfo)
                 }
             }
@@ -170,13 +196,18 @@ class ContentViewModel:ObservableObject {
     private func subscribeForRequestInfoUpdates() {
         self.requestInfoCVsubject
             .drop(while: { aCurrencyRequestInfo in
-                aCurrencyRequestInfo.input == aCurrencyRequestInfo.output
+                
+                let isNotGreaterThanZero = !(aCurrencyRequestInfo.value > 0)
+                return isNotGreaterThanZero
+            })
+            .drop(while: { aCurrencyInfo in
+                aCurrencyInfo.input == aCurrencyInfo.output
             })
             .removeDuplicates()
             .sink {[unowned self] aCurrencyRequestInfo in
                 self.requestCurrency()
-        }
-        .store(in: &lifetimeSubscriptions)
+            }
+            .store(in: &lifetimeSubscriptions)
     }
     
     //MARK: -
@@ -186,11 +217,22 @@ class ContentViewModel:ObservableObject {
         
         let value = requestInfo.value
         
-        let fromCurrency = requestInfo.input
+        let fromCurrency = self.backwardConversion ? requestInfo.output : requestInfo.input
         
-        let toCurrency = requestInfo.output
+        let toCurrency = self.backwardConversion ? requestInfo.input : requestInfo.output
         
         self.stopRefreshTimer()
+        
+        guard toCurrency != fromCurrency else {
+//            self.inputValueText = ""
+            self.outputValueText = ""
+            return
+        }
+        
+        guard value > 0 else {
+            self.outputValueText = ""
+            return
+        }
         
         do {
             let cancellable =
