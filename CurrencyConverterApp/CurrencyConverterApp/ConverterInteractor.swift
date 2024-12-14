@@ -92,7 +92,9 @@ class ConverterInteractor {
         }
         
         let convertedValue = result.value
-        
+#if DEBUG
+        print(" Result Of Conversion: \(result)")
+#endif
         self.resultPassThrough?.send(Result.success(convertedValue))
     }
     

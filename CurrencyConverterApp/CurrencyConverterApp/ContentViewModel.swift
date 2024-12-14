@@ -44,15 +44,20 @@ class ContentViewModel:ObservableObject {
     
     private let refreshIntervalSeconds:Int = 10
     
+    @Published var isUIKit:Bool = false
+    @Published private(set) var toggleUIActionName:String = kToUIKitActionName
+    
     @Published var inProgress:Bool = false
     @Published var inputValueText:String = ""
     @Published var outputValueText:String = ""
     @Published var inputCurrencyTitle:String = ""
     @Published var outputCurrencyTitle:String = ""
     @Published private(set) var isCountdownActive:Bool = false
-    @Published private(set) var backwardConversion:Bool = false
-    @Published var isDisplayingAlert:Bool = false
     
+    @Published private(set) var backwardConversion:Bool = false
+    @Published private(set) var toggleConversionIconName:String = kArrowRightName
+    
+    @Published var isDisplayingAlert:Bool = false
     private(set) var alertInfo:AlertInfo?
     
     let interactor: any CurrencyConversionInteraction
@@ -124,13 +129,32 @@ class ContentViewModel:ObservableObject {
     func uiActionToggleConversionDirection() {
         withAnimation {
             self.backwardConversion.toggle()
+            self.toggleConversionIconName = self.backwardConversion ? kArrowLeftName : kArrowRightName
         }
         
         self.requestCurrency()
     }
     
+    func uiActionToggleUI() {
+        withAnimation {
+            self.isUIKit.toggle()
+            
+        }
+        if self.isUIKit {
+            self.toggleUIActionName = kToSwiftUIActionName
+        }
+        else {
+            self.toggleUIActionName = kToUIKitActionName
+        }
+    }
+    
     //MARK: - Timer
     private func startRefreshTimer() {
+        
+        guard self.refreshTimer == nil else {
+            return
+        }
+        
         let aTimer = Timer(timeInterval: TimeInterval(refreshIntervalSeconds), repeats: true, block: {[weak self] timer in
             guard let self else { return }
             
@@ -286,7 +310,9 @@ class ContentViewModel:ObservableObject {
         defer {
             self.startRefreshTimer()
         }
-        self.outputValueText = String(result)
+        
+        
+        self.outputValueText = result.formatted(.currency(code: self.backwardConversion ? self.inputCurrencyTitle : self.outputCurrencyTitle ))
         self.removePendingSubscription()
         
     }
@@ -330,4 +356,75 @@ class ContentViewModel:ObservableObject {
         self.pendingSubscription?.cancel()
         self.pendingSubscription = nil
     }
+}
+
+
+//MARK: - ContentViewModelType
+extension ContentViewModel: ContentViewModelType {
+    var inputCurrencyName: String? {
+        self.inputCurrencyTitle
+    }
+    
+    var outputCurrencyName: String? {
+        self.outputCurrencyTitle
+    }
+    
+    var isFetchingConversionDataPublisher: AnyPublisher<Bool, Never> {
+        self.$inProgress.eraseToAnyPublisher()
+    }
+    
+    var toggleConversionIconNamePublisher: AnyPublisher<String, Never> {
+        self.$toggleConversionIconName.eraseToAnyPublisher()
+    }
+    
+    var isOppositeDirectionConversionPublisher: AnyPublisher<Bool, Never> {
+        self.$backwardConversion.eraseToAnyPublisher()
+    }
+    
+    var outputValueTextPublisher: AnyPublisher<String, Never> {
+        self.$outputValueText.eraseToAnyPublisher()
+    }
+    
+    var inputText:String? {
+        self.inputValueText
+    }
+    
+    var isAlertPublisher:AnyPublisher<Bool, Never> {
+        self.$isDisplayingAlert.eraseToAnyPublisher()
+    }
+    
+    var alertInfoData: AlertInfo? {
+        self.alertInfo
+    }
+    
+    func setInputCurrencyName(_ string: String) {
+        self.inputCurrencyTitle = string
+    }
+    
+    func setOutputCurrencyName(_ string: String) {
+        self.outputCurrencyTitle = string
+    }
+    
+    func setInputValueText(_ string: String) {
+        self.inputValueText = string
+    }
+    
+}
+
+//MARK: - UXUIFrameworkSwitching
+extension ContentViewModel:UXUIFrameworkSwitching {
+    func switchToUIKit() {
+        withAnimation {
+            self.isUIKit = true
+            self.toggleUIActionName = kToSwiftUIActionName
+        }
+    }
+    
+    func switchToSwiftUI() {
+        withAnimation {
+            self.isUIKit = false
+            self.toggleUIActionName = kToUIKitActionName
+        }
+    }
+    
 }
