@@ -40,6 +40,14 @@ extension WeakObject:UXUIFrameworkSwitching where T:UXUIFrameworkSwitching {
 
 import Combine
 extension WeakObject:ContentViewModelType where T:ContentViewModelType {
+    var inputCurrencyName: String? {
+        object?.inputCurrencyName
+    }
+    
+    var outputCurrencyName: String? {
+        object?.outputCurrencyName
+    }
+    
     var currencyTitles: [String] {
         object?.currencyTitles ?? []
     }
@@ -48,8 +56,12 @@ extension WeakObject:ContentViewModelType where T:ContentViewModelType {
         object?.toggleConversionIconNamePublisher ?? Empty().eraseToAnyPublisher()
     }
     
-    var backwardConversionPublisher: AnyPublisher<Bool, Never> {
-        object?.backwardConversionPublisher ?? Empty().eraseToAnyPublisher()
+    var isOppositeDirectionConversionPublisher: AnyPublisher<Bool, Never> {
+        object?.isOppositeDirectionConversionPublisher ?? Empty().eraseToAnyPublisher()
+    }
+    
+    var isFetchingConversionDataPublisher: AnyPublisher<Bool, Never> {
+        object?.isFetchingConversionDataPublisher ?? Empty().eraseToAnyPublisher()
     }
     
     var outputValueTextPublisher: AnyPublisher<String, Never> {

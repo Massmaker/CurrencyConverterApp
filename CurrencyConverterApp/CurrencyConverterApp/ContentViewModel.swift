@@ -361,12 +361,23 @@ class ContentViewModel:ObservableObject {
 
 //MARK: - ContentViewModelType
 extension ContentViewModel: ContentViewModelType {
+    var inputCurrencyName: String? {
+        self.inputCurrencyTitle
+    }
+    
+    var outputCurrencyName: String? {
+        self.outputCurrencyTitle
+    }
+    
+    var isFetchingConversionDataPublisher: AnyPublisher<Bool, Never> {
+        self.$inProgress.eraseToAnyPublisher()
+    }
     
     var toggleConversionIconNamePublisher: AnyPublisher<String, Never> {
         self.$toggleConversionIconName.eraseToAnyPublisher()
     }
     
-    var backwardConversionPublisher: AnyPublisher<Bool, Never> {
+    var isOppositeDirectionConversionPublisher: AnyPublisher<Bool, Never> {
         self.$backwardConversion.eraseToAnyPublisher()
     }
     

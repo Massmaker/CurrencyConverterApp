@@ -10,12 +10,15 @@ import Combine
 
 protocol ContentViewModelType {
     var currencyTitles:[String] { get }
-    var toggleConversionIconNamePublisher:AnyPublisher<String, Never> { get }
-    var backwardConversionPublisher:AnyPublisher<Bool, Never> { get }
-    var outputValueTextPublisher:AnyPublisher<String, Never> { get }
+    var toggleConversionIconNamePublisher:AnyPublisher<String, Never> { get } //arrow left or arrow right
+    var isOppositeDirectionConversionPublisher:AnyPublisher<Bool, Never> { get } //from leading to trailing currency or vice versa
+    var outputValueTextPublisher:AnyPublisher<String, Never> { get } //conversion result string
+    var isFetchingConversionDataPublisher:AnyPublisher<Bool, Never> {get} //to disable the ui if needed or somehow indicate the process
     var isAlertPublisher:AnyPublisher<Bool, Never> {get}
     var alertInfoData:AlertInfo? {get}
-    var inputText:String?{get}
+    var inputText:String?{get} //initial input text if any
+    var inputCurrencyName:String? {get} //initial selected input currency
+    var outputCurrencyName:String? {get} //initial selected output currency
     func uiActionToggleConversionDirection()
     func setInputCurrencyName(_ string:String)
     func setOutputCurrencyName(_ string:String)
@@ -43,6 +46,8 @@ class CurrencyViewController: UIViewController {
     private var toPickerDataSource: UIPickerDataSource?
     private var textFieldDelegate: UITextFieldDelegate?
     
+    private var activityIndicator:UIActivityIndicatorView?
+    
     private lazy var verticalStack:UIStackView = {
         let vStack = UIStackView()
         vStack.axis = .vertical
@@ -55,7 +60,7 @@ class CurrencyViewController: UIViewController {
         let horStack = UIStackView()
         horStack.axis = .horizontal
         //horStack.spacing = 16
-        
+        horStack.distribution = .equalSpacing
         return horStack
     }()
 
@@ -126,21 +131,59 @@ class CurrencyViewController: UIViewController {
         self.verticalStack.addArrangedSubview(self.pickersHorizontalStack)
         self.verticalStack.addArrangedSubview(self.textsHorizontalStack)
         
+        //Left Picker
         let leftpicker = UIPickerView()
         self.fromCurrencyPicker = leftpicker
-        leftpicker.delegate = self.fromPickerDelegate
         leftpicker.dataSource = self.fromPickerDataSource
+        
+        //pre-set the selected item in left picker
+        if let preSelectedCurrencyName = self.viewModel.inputCurrencyName,
+           let indexOfRow = self.viewModel.currencyTitles.firstIndex(where: {$0 == preSelectedCurrencyName}) {
+            leftpicker.selectRow(indexOfRow, inComponent: 0, animated: false)
+        }
+        
+        //then assign a delegate
+        leftpicker.delegate = self.fromPickerDelegate
+        
         leftpicker.translatesAutoresizingMaskIntoConstraints = false
+        
+        //Left Picker Constraints
         leftpicker.widthAnchor.constraint(lessThanOrEqualToConstant: 150).isActive = true
         
+        //minimal height
+        leftpicker.heightAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
+        
+        //default height
+        let heightLowerPriorityConstraintLeft:NSLayoutConstraint = leftpicker.heightAnchor.constraint(equalToConstant: 150)
+        heightLowerPriorityConstraintLeft.priority = .defaultLow
+        heightLowerPriorityConstraintLeft.isActive = true
+        
+        //Right Picker
         let rightPicker = UIPickerView()
-        
         self.toCurrencyPicker = rightPicker
-        rightPicker.delegate = self.toPickerDelegate
         rightPicker.dataSource = self.toPickerDataSource
-        rightPicker.translatesAutoresizingMaskIntoConstraints = false
-        rightPicker.widthAnchor.constraint(lessThanOrEqualToConstant: 150).isActive = true
         
+        //pre-set the selected item in right picker
+        if let preSelectedOutCurrencyName = self.viewModel.outputCurrencyName,
+           let indexOfRow = self.viewModel.currencyTitles.firstIndex(where: {$0 == preSelectedOutCurrencyName}) {
+            rightPicker.selectRow(indexOfRow, inComponent: 0, animated: false)
+        }
+        
+        //then assign a delegate
+        rightPicker.delegate = self.toPickerDelegate
+        
+        rightPicker.translatesAutoresizingMaskIntoConstraints = false
+        
+        //Right Picker Constraints
+        rightPicker.widthAnchor.constraint(lessThanOrEqualToConstant: 150).isActive = true
+        //minimal height
+        rightPicker.heightAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
+        //default height
+        let heightLowerPriorityConstraintRight:NSLayoutConstraint = rightPicker.heightAnchor.constraint(equalToConstant: 150)
+        heightLowerPriorityConstraintRight.priority = .defaultLow
+        heightLowerPriorityConstraintRight.isActive = true
+        
+        //Direction Change button
         var buttonConfig = UIButton.Configuration.filled()
         buttonConfig.image = UIImage(systemName: kArrowLeftName)
         
@@ -154,12 +197,16 @@ class CurrencyViewController: UIViewController {
         directionButton.heightAnchor.constraint(lessThanOrEqualToConstant: 60).isActive = true
         directionButton.widthAnchor.constraint(lessThanOrEqualToConstant: 60).isActive = true
 
+        let buttonContainerStack = UIStackView(arrangedSubviews: [directionButton])
+        buttonContainerStack.axis = .vertical
+        buttonContainerStack.alignment = .center
+        buttonContainerStack.distribution = .equalCentering
         
         self.pickersHorizontalStack.addArrangedSubview(leftpicker)
-        self.pickersHorizontalStack.addArrangedSubview(directionButton)
+        self.pickersHorizontalStack.addArrangedSubview(buttonContainerStack)
         self.pickersHorizontalStack.addArrangedSubview(rightPicker)
         
-        
+        //Input Value Text Field
         let tf = UITextField()
         self.fromValueTextField = tf
         tf.delegate = self.textFieldDelegate
@@ -169,6 +216,7 @@ class CurrencyViewController: UIViewController {
         tf.text = self.viewModel.inputText
         self.textsHorizontalStack.addArrangedSubview(tf)
         
+        //Result Label
         let labelContainer:UIView = UIView()
         labelContainer.layer.cornerRadius = 12
         labelContainer.layer.borderWidth = 2
@@ -199,6 +247,7 @@ class CurrencyViewController: UIViewController {
         
         self.textsHorizontalStack.addArrangedSubview(labelContainer)
         
+        // UI Framework toggle button
         let backToSwiftUIButton = UIButton(type: .system)
         
         backToSwiftUIButton.setTitle(kToSwiftUIActionName, for: UIControl.State.normal)
@@ -211,17 +260,31 @@ class CurrencyViewController: UIViewController {
         horizontalBottomStack.axis = .horizontal
         horizontalBottomStack.alignment = .leading
         self.verticalStack.addArrangedSubview(horizontalBottomStack)
+        
+        
+        //Simple Activity Indicator
+        let activity = UIActivityIndicatorView(style: .large)
+        activity.hidesWhenStopped = true
+        activity.translatesAutoresizingMaskIntoConstraints = false
+        self.activityIndicator = activity
+        
+        self.view.addSubview(activity)
+        
+        activity.centerXAnchor.constraint(equalTo: self.verticalStack.centerXAnchor, constant: 0).isActive = true
+        activity.centerYAnchor.constraint(equalTo: self.verticalStack.centerYAnchor, constant: 0).isActive = true
     }
     
     private func subscribeToViewModelChanges() {
         subsribeToConversionDirectionUIChange()
         subscribeToResultTextChange()
         subscribeToPossibleAlerts()
+        subscribeToFetchingInProgressChange()
     }
     
     
     private func subsribeToConversionDirectionUIChange() {
         viewModel.toggleConversionIconNamePublisher
+            .receive(on: DispatchQueue.main)
             .sink {[unowned self] iconName in
                 guard let image = UIImage(systemName: iconName) else {
                     return
@@ -232,7 +295,8 @@ class CurrencyViewController: UIViewController {
             .store(in: &lifetimeSubscriptions)
         
         // to change text field's and result label's horizontal positioning
-        viewModel.backwardConversionPublisher
+        viewModel.isOppositeDirectionConversionPublisher
+            .receive(on: DispatchQueue.main)
             .sink { [unowned self] isBackwards in
                 let subviews = self.textsHorizontalStack.arrangedSubviews
                 guard subviews.count > 2 else {
@@ -270,6 +334,7 @@ class CurrencyViewController: UIViewController {
 
     private func subscribeToResultTextChange() {
         self.viewModel.outputValueTextPublisher
+            .receive(on: DispatchQueue.main)
             .sink { [unowned self] resultText in
                 self.resultLabel.text = resultText
             }
@@ -278,6 +343,7 @@ class CurrencyViewController: UIViewController {
     
     private func subscribeToPossibleAlerts() {
         self.viewModel.isAlertPublisher
+            .receive(on: DispatchQueue.main)
             .sink {[unowned self] isDisplayingAlert in
                 guard let alertInfo = self.viewModel.alertInfoData else {
                     return
@@ -285,6 +351,21 @@ class CurrencyViewController: UIViewController {
                 
                 self.presentAlert(alertInfo)
             }
+            .store(in: &lifetimeSubscriptions)
+    }
+    
+    private func subscribeToFetchingInProgressChange() {
+        
+        self.viewModel.isFetchingConversionDataPublisher
+            .receive(on: DispatchQueue.main)
+            .sink(receiveValue: {[unowned self] isFetchingInProgress in
+                if isFetchingInProgress {
+                    self.activityIndicator?.startAnimating()
+                }
+                else {
+                    self.activityIndicator?.stopAnimating()
+                }
+            })
             .store(in: &lifetimeSubscriptions)
     }
     
